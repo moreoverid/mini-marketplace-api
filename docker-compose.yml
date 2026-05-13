@@ -9,6 +9,8 @@ services:
     image: mini-marketplace-app
     container_name: mini-marketplace-app
     working_dir: /var/www/html
+    ports:
+      - "${VITE_PORT:-5173}:5173"
     volumes:
       - .:/var/www/html
     depends_on:

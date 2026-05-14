@@ -20,20 +20,22 @@ final class CreateProductHandlerTest extends TestCase
 
         $handler = new CreateProductHandler($repository);
 
-        $productId = $handler->handle(new CreateProductCommand(
+        $product = $handler->handle(new CreateProductCommand(
             name: 'iPhone 15',
             priceAmount: 99900,
             currency: 'USD',
             stock: 10,
         ));
 
-        $product = $repository->find($productId);
+        $savedProduct = $repository->find($product->id());
 
-        $this->assertNotNull($product);
-        $this->assertSame('iPhone 15', $product->name());
-        $this->assertSame(99900, $product->price()->amount());
-        $this->assertSame('USD', $product->price()->currency());
-        $this->assertSame(10, $product->stock());
+        $this->assertNotNull($savedProduct);
+        $this->assertTrue($product->id()->equals($savedProduct->id()));
+
+        $this->assertSame('iPhone 15', $savedProduct->name());
+        $this->assertSame(99900, $savedProduct->price()->amount());
+        $this->assertSame('USD', $savedProduct->price()->currency());
+        $this->assertSame(10, $savedProduct->stock());
     }
 
     public function test_it_does_not_create_product_with_empty_name(): void

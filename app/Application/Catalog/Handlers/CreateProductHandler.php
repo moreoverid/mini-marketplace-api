@@ -13,10 +13,11 @@ use App\Domain\Catalog\ValueObjects\ProductId;
 final class CreateProductHandler
 {
     public function __construct(
-        private ProductRepository $products
-    ) {}
+        private ProductRepository $products,
+    ) {
+    }
 
-    public function handle(CreateProductCommand $command): ProductId
+    public function handle(CreateProductCommand $command): Product
     {
         $product = new Product(
             id: ProductId::generate(),
@@ -27,6 +28,6 @@ final class CreateProductHandler
 
         $this->products->save($product);
 
-        return $product->id();
+        return $product;
     }
 }

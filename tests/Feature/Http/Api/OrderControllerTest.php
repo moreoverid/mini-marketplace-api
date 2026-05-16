@@ -218,4 +218,91 @@ final class OrderControllerTest extends TestCase
         $this->patchJson("/api/orders/{$orderId}/pay")
             ->assertConflict();
     }
+
+    public function test_it_lists_orders(): void
+    {
+        $productId = (string) Str::uuid();
+
+        ProductModel::query()->create([
+            'id' => $productId,
+            'name' => 'iPhone 15',
+            'price_amount' => 99900,
+            'currency' => 'USD',
+            'stock' => 10,
+        ]);
+
+        $this->postJson('/api/orders', [
+            'items' => [
+                [
+                    'product_id' => $productId,
+                    'quantity' => 2,
+                ],
+            ],
+        ])->assertCreated();
+
+        $this->postJson('/api/orders', [
+            'items' => [
+                [
+                    'product_id' => $productId,
+                    'quantity' => 1,
+                ],
+            ],
+        ])->assertCreated();
+
+        $response = $this->getJson('/api/orders?per_page=10');
+
+        $response
+            ->assertOk()
+            ->assertJsonCount(2, 'data')
+            ->assertJsonPath('meta.total', 2)
+            ->assertJsonPath('meta.per_page', 10);
+    }
+
+    public function test_it_filters_orders_by_status(): void
+    {
+        $productId = (string) Str::uuid();
+
+        ProductModel::query()->create([
+            'id' => $productId,
+            'name' => 'iPhone 15',
+            'price_amount' => 99900,
+            'currency' => 'USD',
+            'stock' => 10,
+        ]);
+
+        $createPendingResponse = $this->postJson('/api/orders', [
+            'items' => [
+                [
+                    'product_id' => $productId,
+                    'quantity' => 2,
+                ],
+            ],
+        ]);
+
+        $createPaidResponse = $this->postJson('/api/orders', [
+            'items' => [
+                [
+                    'product_id' => $productId,
+                    'quantity' => 1,
+                ],
+            ],
+        ]);
+
+        $paidOrderId = $createPaidResponse->json('data.id');
+
+        $this->patchJson("/api/orders/{$paidOrderId}/pay")->assertOk();
+
+        $response = $this->getJson('/api/orders?status=paid');
+
+        $response
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $paidOrderId)
+            ->assertJsonPath('data.0.status', 'paid');
+
+        $this->assertNotSame(
+            $createPendingResponse->json('data.id'),
+            $response->json('data.0.id'),
+        );
+    }
 }

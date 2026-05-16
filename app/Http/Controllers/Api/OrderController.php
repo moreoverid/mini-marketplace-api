@@ -14,12 +14,38 @@ use App\Http\Resources\OrderResource;
 use App\Application\Ordering\Commands\PayOrderCommand;
 use App\Application\Ordering\Exceptions\OrderNotFoundException;
 use App\Application\Ordering\Handlers\PayOrderHandler;
+use App\Application\Ordering\Handlers\ListOrdersHandler;
+use App\Application\Ordering\Queries\ListOrdersQuery;
+use App\Http\Requests\Api\ListOrdersRequest;
+use App\Http\Resources\OrderListItemResource;
 use DomainException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Response;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 final class OrderController extends Controller
 {
+    public function index(
+        ListOrdersRequest $request,
+        ListOrdersHandler $handler,
+    ): AnonymousResourceCollection {
+        $orders = $handler->handle(new ListOrdersQuery(
+            page: $request->page(),
+            perPage: $request->perPage(),
+            status: $request->status(),
+        ));
+
+        return OrderListItemResource::collection($orders->items)
+            ->additional([
+                'meta' => [
+                    'total' => $orders->total,
+                    'per_page' => $orders->perPage,
+                    'current_page' => $orders->currentPage,
+                    'last_page' => $orders->lastPage,
+                ],
+            ]);
+    }
+
     public function store(
         StoreOrderRequest $request,
         CreateOrderHandler $handler,

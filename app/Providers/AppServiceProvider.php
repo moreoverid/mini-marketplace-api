@@ -12,6 +12,8 @@ use App\Application\Shared\Eventing\DomainEventDispatcher;
 use App\Infrastructure\Eventing\LaravelDomainEventDispatcher;
 use App\Domain\Ordering\Events\OrderPaid;
 use App\Infrastructure\Eventing\Listeners\DispatchOrderPaidJobs;
+use App\Application\Ordering\ReadRepositories\OrderReadRepository;
+use App\Infrastructure\Persistence\Eloquent\Repositories\EloquentOrderReadRepository;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 
@@ -40,6 +42,11 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(
             DomainEventDispatcher::class,
             LaravelDomainEventDispatcher::class,
+        );
+
+        $this->app->bind(
+            OrderReadRepository::class,
+            EloquentOrderReadRepository::class,
         );
     }
 

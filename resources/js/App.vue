@@ -20,6 +20,12 @@
 
         <q-btn
           flat
+          label="Orders"
+          to="/orders"
+        />
+
+        <q-btn
+          flat
           round
           dense
           icon="shopping_cart"

@@ -6,7 +6,24 @@
           Mini Marketplace
         </q-toolbar-title>
 
-        <q-btn flat round dense icon="shopping_cart" />
+        <q-btn
+          flat
+          label="Dashboard"
+          to="/"
+        />
+
+        <q-btn
+          flat
+          label="Products"
+          to="/products"
+        />
+
+        <q-btn
+          flat
+          round
+          dense
+          icon="shopping_cart"
+        />
       </q-toolbar>
     </q-header>
 

@@ -105,4 +105,16 @@ final class Order
 
         return new Money($amount, $currency);
     }
+
+    public static function restore(
+        OrderId $id,
+        OrderStatus $status,
+        array $items,
+    ): self {
+        return new self(
+            id: $id,
+            status: $status,
+            items: $items,
+        );
+    }
 }

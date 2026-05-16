@@ -10,6 +10,9 @@ use App\Domain\Ordering\Repositories\OrderRepository;
 use App\Infrastructure\Persistence\Eloquent\Repositories\EloquentOrderRepository;
 use App\Application\Shared\Eventing\DomainEventDispatcher;
 use App\Infrastructure\Eventing\LaravelDomainEventDispatcher;
+use App\Domain\Ordering\Events\OrderPaid;
+use App\Infrastructure\Eventing\Listeners\DispatchOrderPaidJobs;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -45,6 +48,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        Event::listen(
+            OrderPaid::class,
+            DispatchOrderPaidJobs::class,
+        );
     }
 }

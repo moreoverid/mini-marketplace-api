@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Tests\Feature\Http\Api;
 
 use App\Infrastructure\Persistence\Eloquent\Models\ProductModel;
+use App\Jobs\Ordering\RecordOrderPaidAuditLogJob;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use Tests\TestCase;
@@ -152,6 +154,8 @@ final class OrderControllerTest extends TestCase
 
         $orderId = $createResponse->json('data.id');
 
+        Queue::fake();
+
         $response = $this->patchJson("/api/orders/{$orderId}/pay");
 
         $response
@@ -159,6 +163,11 @@ final class OrderControllerTest extends TestCase
             ->assertJsonPath('data.id', $orderId)
             ->assertJsonPath('data.status', 'paid')
             ->assertJsonPath('data.total.amount', 199800);
+
+        Queue::assertPushed(
+            RecordOrderPaidAuditLogJob::class,
+            static fn (RecordOrderPaidAuditLogJob $job): bool => $job->orderId === $orderId,
+        );
 
         $this->assertDatabaseHas('orders', [
             'id' => $orderId,

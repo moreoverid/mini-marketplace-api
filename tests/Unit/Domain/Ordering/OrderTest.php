@@ -9,6 +9,7 @@ use App\Domain\Catalog\ValueObjects\ProductId;
 use App\Domain\Ordering\Entities\Order;
 use App\Domain\Ordering\ValueObjects\OrderId;
 use App\Domain\Ordering\ValueObjects\OrderStatus;
+use App\Domain\Ordering\Events\OrderPaid;
 use DomainException;
 use PHPUnit\Framework\TestCase;
 
@@ -75,6 +76,12 @@ final class OrderTest extends TestCase
         $order->pay();
 
         $this->assertTrue($order->status()->equals(OrderStatus::paid()));
+
+        $events = $order->releaseEvents();
+
+        $this->assertCount(1, $events);
+        $this->assertInstanceOf(OrderPaid::class, $events[0]);
+        $this->assertTrue($order->id()->equals($events[0]->orderId()));
     }
 
     public function test_it_cannot_be_paid_twice(): void

@@ -128,4 +128,85 @@ final class OrderControllerTest extends TestCase
 
         $response->assertNotFound();
     }
+
+    public function test_it_pays_order(): void
+    {
+        $productId = (string) Str::uuid();
+
+        ProductModel::query()->create([
+            'id' => $productId,
+            'name' => 'iPhone 15',
+            'price_amount' => 99900,
+            'currency' => 'USD',
+            'stock' => 10,
+        ]);
+
+        $createResponse = $this->postJson('/api/orders', [
+            'items' => [
+                [
+                    'product_id' => $productId,
+                    'quantity' => 2,
+                ],
+            ],
+        ]);
+
+        $orderId = $createResponse->json('data.id');
+
+        $response = $this->patchJson("/api/orders/{$orderId}/pay");
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('data.id', $orderId)
+            ->assertJsonPath('data.status', 'paid')
+            ->assertJsonPath('data.total.amount', 199800);
+
+        $this->assertDatabaseHas('orders', [
+            'id' => $orderId,
+            'status' => 'paid',
+        ]);
+    }
+
+    public function test_it_returns_404_when_paying_unknown_order(): void
+    {
+        $response = $this->patchJson('/api/orders/11111111-1111-1111-1111-111111111111/pay');
+
+        $response->assertNotFound();
+    }
+
+    public function test_it_returns_404_when_paying_order_with_invalid_id(): void
+    {
+        $response = $this->patchJson('/api/orders/not-a-uuid/pay');
+
+        $response->assertNotFound();
+    }
+
+    public function test_it_returns_409_when_order_is_already_paid(): void
+    {
+        $productId = (string) Str::uuid();
+
+        ProductModel::query()->create([
+            'id' => $productId,
+            'name' => 'iPhone 15',
+            'price_amount' => 99900,
+            'currency' => 'USD',
+            'stock' => 10,
+        ]);
+
+        $createResponse = $this->postJson('/api/orders', [
+            'items' => [
+                [
+                    'product_id' => $productId,
+                    'quantity' => 2,
+                ],
+            ],
+        ]);
+
+        $orderId = $createResponse->json('data.id');
+
+        $this->patchJson("/api/orders/{$orderId}/pay")
+            ->assertOk();
+
+        $this->patchJson("/api/orders/{$orderId}/pay")
+            ->assertConflict();
+    }
 }

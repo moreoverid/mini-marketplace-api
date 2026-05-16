@@ -11,6 +11,9 @@ use App\Domain\Ordering\ValueObjects\OrderId;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\StoreOrderRequest;
 use App\Http\Resources\OrderResource;
+use App\Application\Ordering\Commands\PayOrderCommand;
+use App\Application\Ordering\Exceptions\OrderNotFoundException;
+use App\Application\Ordering\Handlers\PayOrderHandler;
 use DomainException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Response;
@@ -41,6 +44,29 @@ final class OrderController extends Controller
         $order = $orders->find($orderId);
 
         abort_if($order === null, Response::HTTP_NOT_FOUND);
+
+        return new OrderResource($order);
+    }
+
+    public function pay(
+        string $id,
+        PayOrderHandler $handler,
+    ): OrderResource|JsonResponse {
+        try {
+            $orderId = OrderId::fromString($id);
+        } catch (DomainException) {
+            abort(Response::HTTP_NOT_FOUND);
+        }
+
+        try {
+            $order = $handler->handle(new PayOrderCommand($orderId));
+        } catch (OrderNotFoundException) {
+            abort(Response::HTTP_NOT_FOUND);
+        } catch (DomainException $exception) {
+            return response()->json([
+                'message' => $exception->getMessage(),
+            ], Response::HTTP_CONFLICT);
+        }
 
         return new OrderResource($order);
     }

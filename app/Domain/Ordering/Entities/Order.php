@@ -8,10 +8,17 @@ use App\Domain\Catalog\ValueObjects\Money;
 use App\Domain\Catalog\ValueObjects\ProductId;
 use App\Domain\Ordering\ValueObjects\OrderId;
 use App\Domain\Ordering\ValueObjects\OrderStatus;
+use App\Domain\Ordering\Events\OrderPaid;
+use App\Domain\Shared\Events\DomainEvent;
 use DomainException;
 
 final class Order
 {
+    /**
+     * @var list<DomainEvent>
+     */
+    private array $recordedEvents = [];
+
     /**
      * @param list<OrderItem> $items
      */
@@ -88,6 +95,8 @@ final class Order
         }
 
         $this->status = OrderStatus::paid();
+
+        $this->recordThat(new OrderPaid($this->id));
     }
 
     public function total(): Money
@@ -116,5 +125,22 @@ final class Order
             status: $status,
             items: $items,
         );
+    }
+
+    private function recordThat(DomainEvent $event): void
+    {
+        $this->recordedEvents[] = $event;
+    }
+
+    /**
+     * @return list<DomainEvent>
+     */
+    public function releaseEvents(): array
+    {
+        $events = $this->recordedEvents;
+
+        $this->recordedEvents = [];
+
+        return $events;
     }
 }

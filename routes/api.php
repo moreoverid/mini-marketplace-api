@@ -10,3 +10,7 @@ Route::get('/products/{id}', [ProductController::class, 'show']);
 
 Route::post('/orders', [OrderController::class, 'store']);
 Route::get('/orders/{id}', [OrderController::class, 'show']);
+
+Route::post('/orders', [OrderController::class, 'store']);
+Route::patch('/orders/{id}/pay', [OrderController::class, 'pay']);
+Route::get('/orders/{id}', [OrderController::class, 'show']);

@@ -1,19 +1,26 @@
 # Mini Marketplace API
 
-Mini Marketplace is a portfolio project built with **Laravel 12**, **PHP 8+**, **PostgreSQL**, **Redis**, **Docker** and **Quasar 2**.
+Mini Marketplace API is a portfolio project built with **Laravel 12**, **PHP 8+**, **PostgreSQL**, **Redis**, **Docker** and **Quasar 2**.
 
-The main goal of this project is to demonstrate practical usage of:
+The project demonstrates a practical full-stack marketplace flow with:
 
 - Domain-Driven Design
+- simplified CQRS
 - Test-Driven Development
-- CQRS
-- SOLID principles
-- Laravel queues, events, listeners and jobs
+- SOLID-oriented responsibility separation
+- Laravel events, listeners, queued jobs
 - PostgreSQL persistence
-- Vue 3 / Quasar frontend integration
+- Redis queue worker
+- Vue 3 / Quasar 2 frontend
 - Docker-based local development
 
-The project implements a small marketplace flow:
+---
+
+## Project Goal
+
+The goal of this project is not to build a large marketplace, but to show a clean and testable backend architecture on a small realistic domain.
+
+Current business flow:
 
 ```text
 Create product
@@ -22,14 +29,16 @@ Create order from product
 ↓
 Pay order
 ↓
-Dispatch domain event
+Record OrderPaid domain event
 ↓
-Handle event through listener
+Dispatch listener
 ↓
-Push queued job
+Run queued job
 ↓
 Write payment audit log
 ```
+
+The same flow is available through the Quasar UI.
 
 ---
 
@@ -67,7 +76,7 @@ Write payment audit log
 
 ### Products
 
-- Create product
+- Create products
 - List products with pagination
 - Search products by name
 - Store price as integer amount instead of float
@@ -75,14 +84,15 @@ Write payment audit log
 
 ### Orders
 
-- Create order from existing products
+- Create orders from existing products
 - Store order items with fixed unit price
 - List orders with pagination
 - Filter orders by status
-- Pay pending order
+- Pay pending orders
 - Prevent paying an order twice
 - Dispatch `OrderPaid` domain event
 - Handle payment side effects through queued job
+- Store payment audit log idempotently
 
 ### Frontend
 
@@ -98,123 +108,157 @@ Write payment audit log
 
 ## Architecture Overview
 
-The project uses a layered architecture inspired by DDD:
+The project uses a modular structure grouped by business context.
 
 ```text
-Http
-↓
-Application
-↓
-Domain
-↓
-Infrastructure
+app/
+├── Modules/
+│   ├── Catalog/
+│   │   ├── Domain/
+│   │   ├── Application/
+│   │   ├── Infrastructure/
+│   │   └── Http/
+│   ├── Ordering/
+│   │   ├── Domain/
+│   │   ├── Application/
+│   │   ├── Infrastructure/
+│   │   └── Http/
+│   └── Shared/
+│       ├── Domain/
+│       ├── Application/
+│       └── Infrastructure/
+├── Http/
+│   └── Controllers/
+├── Models/
+└── Providers/
 ```
 
-### Domain Layer
+The main idea is to keep classes that change for the same business reason close to each other.
 
-Contains business entities, value objects, domain events and repository contracts.
-
-```text
-app/Domain
-├── Catalog
-│   ├── Entities
-│   ├── ValueObjects
-│   └── Repositories
-├── Ordering
-│   ├── Entities
-│   ├── ValueObjects
-│   ├── Events
-│   └── Repositories
-└── Shared
-    └── Events
-```
-
-Examples:
-
-- `Product`
-- `Money`
-- `ProductId`
-- `Order`
-- `OrderItem`
-- `OrderStatus`
-- `OrderPaid`
-
-The domain layer does not depend on Eloquent models, controllers or HTTP requests.
+For example, Catalog-related domain objects, use cases, HTTP controllers and persistence code are grouped under the `Catalog` module.
 
 ---
 
-### Application Layer
+## Module Structure
+
+Each business module follows the same high-level structure:
+
+```text
+Module
+├── Domain
+├── Application
+├── Infrastructure
+└── Http
+```
+
+### Domain
+
+Contains business objects and rules.
+
+Examples:
+
+```text
+Catalog/Domain
+├── Entities/Product.php
+├── ValueObjects/Money.php
+├── ValueObjects/ProductId.php
+└── Repositories/ProductRepository.php
+```
+
+```text
+Ordering/Domain
+├── Entities/Order.php
+├── Entities/OrderItem.php
+├── ValueObjects/OrderId.php
+├── ValueObjects/OrderStatus.php
+├── Events/OrderPaid.php
+└── Repositories/OrderRepository.php
+```
+
+The domain layer does not depend on Laravel controllers, requests, resources or Eloquent models.
+
+---
+
+### Application
 
 Contains use cases, commands, handlers, queries and read models.
 
-```text
-app/Application
-├── Catalog
-│   ├── Commands
-│   ├── Handlers
-│   ├── Queries
-│   ├── ReadModels
-│   └── ReadRepositories
-├── Ordering
-│   ├── Commands
-│   ├── Handlers
-│   ├── Queries
-│   ├── ReadModels
-│   └── ReadRepositories
-└── Shared
-    └── Eventing
-```
-
 Examples:
 
-- `CreateProductHandler`
-- `ListProductsHandler`
-- `CreateOrderHandler`
-- `PayOrderHandler`
-- `ListOrdersHandler`
+```text
+Catalog/Application
+├── Commands/CreateProductCommand.php
+├── Handlers/CreateProductHandler.php
+├── Queries/ListProductsQuery.php
+├── ReadModels/ProductListItem.php
+└── ReadRepositories/ProductReadRepository.php
+```
 
-Application handlers orchestrate use cases but do not contain low-level infrastructure logic.
+```text
+Ordering/Application
+├── Commands/CreateOrderCommand.php
+├── Commands/PayOrderCommand.php
+├── Handlers/CreateOrderHandler.php
+├── Handlers/PayOrderHandler.php
+├── Queries/ListOrdersQuery.php
+└── ReadRepositories/OrderReadRepository.php
+```
+
+Application handlers orchestrate use cases, but do not contain low-level infrastructure logic.
 
 ---
 
-### Infrastructure Layer
+### Infrastructure
 
-Contains technical implementations:
-
-```text
-app/Infrastructure
-├── Eventing
-│   └── Listeners
-└── Persistence
-    └── Eloquent
-        ├── Models
-        └── Repositories
-```
+Contains technical implementations.
 
 Examples:
 
-- `EloquentProductRepository`
-- `EloquentProductReadRepository`
-- `EloquentOrderRepository`
-- `EloquentOrderReadRepository`
-- `LaravelDomainEventDispatcher`
-- `DispatchOrderPaidJobs`
+```text
+Catalog/Infrastructure
+└── Persistence/Eloquent
+    ├── Models/ProductModel.php
+    └── Repositories/EloquentProductRepository.php
+```
+
+```text
+Ordering/Infrastructure
+├── Eventing/Listeners/DispatchOrderPaidJobs.php
+├── Jobs/RecordOrderPaidAuditLogJob.php
+└── Persistence/Eloquent
+    ├── Models/OrderModel.php
+    ├── Models/OrderItemModel.php
+    ├── Models/OrderPaymentLogModel.php
+    └── Repositories/EloquentOrderRepository.php
+```
+
+Infrastructure classes know about Laravel, Eloquent, queues and other technical details.
 
 ---
 
-### HTTP Layer
+### Http
 
-Contains Laravel controllers, form requests and API resources.
+Contains controllers, form requests and resources for a specific module.
+
+Examples:
 
 ```text
-app/Http
-├── Controllers
-├── Requests
-└── Resources
+Catalog/Http
+├── Controllers/ProductController.php
+├── Requests/StoreProductRequest.php
+├── Requests/ListProductsRequest.php
+└── Resources/ProductResource.php
 ```
 
-Controllers are intentionally thin.  
-They receive HTTP input, pass data to application handlers and return API resources.
+```text
+Ordering/Http
+├── Controllers/OrderController.php
+├── Requests/StoreOrderRequest.php
+├── Requests/ListOrdersRequest.php
+└── Resources/OrderResource.php
+```
+
+Controllers are intentionally thin: they receive HTTP input, call application handlers and return API resources.
 
 ---
 
@@ -241,7 +285,7 @@ The domain event is recorded inside the aggregate:
 $this->recordThat(new OrderPaid($this->id));
 ```
 
-But the actual dispatching happens in the application layer:
+The actual dispatching happens in the application layer:
 
 ```php
 $this->events->dispatch(...$order->releaseEvents());
@@ -286,7 +330,9 @@ ProductListItem
 OrderListItem
 ```
 
-At the moment both command and query sides use PostgreSQL, but the read side can later be moved to Elasticsearch without changing the domain model.
+The reason for this separation is simple: list/search endpoints need pagination, filters and UI-specific read models, while domain repositories should stay focused on aggregate persistence.
+
+At the moment both command and query sides use PostgreSQL, but the read side can later be moved to Elasticsearch without changing the domain model or command side.
 
 ---
 
@@ -302,6 +348,8 @@ PayOrderHandler
 Order::pay()
 ↓
 OrderPaid domain event
+↓
+DomainEventDispatcher
 ↓
 LaravelDomainEventDispatcher
 ↓
@@ -442,7 +490,7 @@ Start queue worker:
 docker compose --profile workers up -d
 ```
 
-The worker listens to:
+The worker should listen to:
 
 ```text
 orders,default
@@ -464,7 +512,7 @@ Run all tests:
 docker compose exec app php artisan test
 ```
 
-Run specific test:
+Run a specific test:
 
 ```bash
 docker compose exec app php artisan test --filter=OrderControllerTest
@@ -476,8 +524,8 @@ Current test coverage includes:
 - application handler tests;
 - infrastructure repository tests;
 - HTTP feature tests;
-- queued job tests;
-- event listener tests.
+- event listener tests;
+- queued job tests.
 
 ---
 
@@ -499,13 +547,21 @@ docker compose exec app npm run build
 
 ## Important Design Decisions
 
+### Modules are grouped by business context
+
+The code is grouped by modules such as `Catalog` and `Ordering`.
+
+This makes related domain, application, infrastructure and HTTP code easier to find and change together.
+
+---
+
 ### Domain models are separated from Eloquent models
 
 For example:
 
 ```text
-Domain Product
-Infrastructure ProductModel
+Catalog Domain Product
+Catalog Infrastructure ProductModel
 ```
 
 The domain model contains business rules.  
@@ -560,7 +616,7 @@ This is important because queued jobs may be executed more than once.
 Possible next improvements:
 
 - add Elasticsearch for product search;
-- add Kafka or Redpanda for publishing integration events;
+- add RabbitMQ for publishing integration events;
 - implement outbox pattern;
 - add order cancellation flow;
 - add stock reservation/decrease logic;
@@ -593,4 +649,4 @@ Domain events
 Queued jobs
 ```
 
-This repository is intended as a portfolio project for demonstrating practical backend architecture with Laravel, DDD, CQRS and TDD.
+This repository is intended as a portfolio project for demonstrating practical backend architecture with Laravel, DDD, CQRS, TDD and modular design.

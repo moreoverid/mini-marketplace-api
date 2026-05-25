@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Jobs\Ordering;
 
-use App\Infrastructure\Persistence\Eloquent\Models\OrderModel;
-use App\Jobs\Ordering\RecordOrderPaidAuditLogJob;
+use App\Modules\Ordering\Infrastructure\Persistence\Eloquent\Models\OrderModel;
+use App\Modules\Ordering\Infrastructure\Jobs\RecordOrderPaidAuditLogJob;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use Tests\TestCase;

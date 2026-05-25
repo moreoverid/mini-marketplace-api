@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Infrastructure\Eventing\Listeners;
 
-use App\Domain\Ordering\Events\OrderPaid;
-use App\Domain\Ordering\ValueObjects\OrderId;
-use App\Infrastructure\Eventing\Listeners\DispatchOrderPaidJobs;
-use App\Jobs\Ordering\RecordOrderPaidAuditLogJob;
+use App\Modules\Ordering\Domain\Events\OrderPaid;
+use App\Modules\Ordering\Domain\ValueObjects\OrderId;
+use App\Modules\Ordering\Infrastructure\Eventing\Listeners\DispatchOrderPaidJobs;
+use App\Modules\Ordering\Infrastructure\Jobs\RecordOrderPaidAuditLogJob;
 use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
 

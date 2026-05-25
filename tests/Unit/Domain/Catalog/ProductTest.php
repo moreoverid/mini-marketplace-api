@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Domain\Catalog;
 
-use App\Domain\Catalog\Entities\Product;
-use App\Domain\Catalog\ValueObjects\Money;
-use App\Domain\Catalog\ValueObjects\ProductId;
+use App\Modules\Catalog\Domain\Entities\Product;
+use App\Modules\Catalog\Domain\ValueObjects\Money;
+use App\Modules\Catalog\Domain\ValueObjects\ProductId;
 use DomainException;
 use PHPUnit\Framework\TestCase;
 

@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Application\Catalog;
 
-use App\Application\Catalog\Commands\CreateProductCommand;
-use App\Application\Catalog\Handlers\CreateProductHandler;
-use App\Domain\Catalog\Entities\Product;
-use App\Domain\Catalog\Repositories\ProductRepository;
-use App\Domain\Catalog\ValueObjects\ProductId;
+use App\Modules\Catalog\Application\Commands\CreateProductCommand;
+use App\Modules\Catalog\Application\Handlers\CreateProductHandler;
+use App\Modules\Catalog\Domain\Entities\Product;
+use App\Modules\Catalog\Domain\Repositories\ProductRepository;
+use App\Modules\Catalog\Domain\ValueObjects\ProductId;
 use DomainException;
 use PHPUnit\Framework\TestCase;
 

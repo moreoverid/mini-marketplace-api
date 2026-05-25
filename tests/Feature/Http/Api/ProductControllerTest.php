@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Http\Api;
 
-use App\Infrastructure\Persistence\Eloquent\Models\ProductModel;
+use App\Modules\Catalog\Infrastructure\Persistence\Eloquent\Models\ProductModel;
 use Illuminate\Support\Str;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;

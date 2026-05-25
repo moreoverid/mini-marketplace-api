@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Domain\Ordering;
 
-use App\Domain\Catalog\ValueObjects\Money;
-use App\Domain\Catalog\ValueObjects\ProductId;
-use App\Domain\Ordering\Entities\Order;
-use App\Domain\Ordering\ValueObjects\OrderId;
-use App\Domain\Ordering\ValueObjects\OrderStatus;
-use App\Domain\Ordering\Events\OrderPaid;
+use App\Modules\Catalog\Domain\ValueObjects\Money;
+use App\Modules\Catalog\Domain\ValueObjects\ProductId;
+use App\Modules\Ordering\Domain\Entities\Order;
+use App\Modules\Ordering\Domain\ValueObjects\OrderId;
+use App\Modules\Ordering\Domain\ValueObjects\OrderStatus;
+use App\Modules\Ordering\Domain\Events\OrderPaid;
 use DomainException;
 use PHPUnit\Framework\TestCase;
 

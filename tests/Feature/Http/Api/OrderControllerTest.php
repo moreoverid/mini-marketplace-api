@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Http\Api;
 
-use App\Infrastructure\Persistence\Eloquent\Models\ProductModel;
-use App\Jobs\Ordering\RecordOrderPaidAuditLogJob;
+use App\Modules\Catalog\Infrastructure\Persistence\Eloquent\Models\ProductModel;
+use App\Modules\Ordering\Infrastructure\Jobs\RecordOrderPaidAuditLogJob;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;

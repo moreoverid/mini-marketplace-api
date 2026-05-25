@@ -2,18 +2,18 @@
 
 namespace App\Providers;
 
-use App\Domain\Catalog\Repositories\ProductRepository;
-use App\Infrastructure\Persistence\Eloquent\Repositories\EloquentProductRepository;
-use App\Application\Catalog\ReadRepositories\ProductReadRepository;
-use App\Infrastructure\Persistence\Eloquent\Repositories\EloquentProductReadRepository;
-use App\Domain\Ordering\Repositories\OrderRepository;
-use App\Infrastructure\Persistence\Eloquent\Repositories\EloquentOrderRepository;
-use App\Application\Shared\Eventing\DomainEventDispatcher;
-use App\Infrastructure\Eventing\LaravelDomainEventDispatcher;
-use App\Domain\Ordering\Events\OrderPaid;
-use App\Infrastructure\Eventing\Listeners\DispatchOrderPaidJobs;
-use App\Application\Ordering\ReadRepositories\OrderReadRepository;
-use App\Infrastructure\Persistence\Eloquent\Repositories\EloquentOrderReadRepository;
+use App\Modules\Catalog\Domain\Repositories\ProductRepository;
+use App\Modules\Catalog\Infrastructure\Persistence\Eloquent\Repositories\EloquentProductRepository;
+use App\Modules\Catalog\Application\ReadRepositories\ProductReadRepository;
+use App\Modules\Catalog\Infrastructure\Persistence\Eloquent\Repositories\EloquentProductReadRepository;
+use App\Modules\Ordering\Domain\Repositories\OrderRepository;
+use App\Modules\Ordering\Infrastructure\Persistence\Eloquent\Repositories\EloquentOrderRepository;
+use App\Modules\Shared\Application\Eventing\DomainEventDispatcher;
+use App\Modules\Shared\Infrastructure\Eventing\LaravelDomainEventDispatcher;
+use App\Modules\Ordering\Domain\Events\OrderPaid;
+use App\Modules\Ordering\Infrastructure\Eventing\Listeners\DispatchOrderPaidJobs;
+use App\Modules\Ordering\Application\ReadRepositories\OrderReadRepository;
+use App\Modules\Ordering\Infrastructure\Persistence\Eloquent\Repositories\EloquentOrderReadRepository;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 

@@ -4,16 +4,16 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Application\Ordering;
 
-use App\Application\Ordering\Commands\CreateOrderCommand;
-use App\Application\Ordering\Handlers\CreateOrderHandler;
-use App\Domain\Catalog\Entities\Product;
-use App\Domain\Catalog\Repositories\ProductRepository;
-use App\Domain\Catalog\ValueObjects\Money;
-use App\Domain\Catalog\ValueObjects\ProductId;
-use App\Domain\Ordering\Entities\Order;
-use App\Domain\Ordering\Repositories\OrderRepository;
-use App\Domain\Ordering\ValueObjects\OrderId;
-use App\Domain\Ordering\ValueObjects\OrderStatus;
+use App\Modules\Ordering\Application\Commands\CreateOrderCommand;
+use App\Modules\Ordering\Application\Handlers\CreateOrderHandler;
+use App\Modules\Catalog\Domain\Entities\Product;
+use App\Modules\Catalog\Domain\Repositories\ProductRepository;
+use App\Modules\Catalog\Domain\ValueObjects\Money;
+use App\Modules\Catalog\Domain\ValueObjects\ProductId;
+use App\Modules\Ordering\Domain\Entities\Order;
+use App\Modules\Ordering\Domain\Repositories\OrderRepository;
+use App\Modules\Ordering\Domain\ValueObjects\OrderId;
+use App\Modules\Ordering\Domain\ValueObjects\OrderStatus;
 use DomainException;
 use PHPUnit\Framework\TestCase;
 

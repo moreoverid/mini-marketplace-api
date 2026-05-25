@@ -4,18 +4,18 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Application\Ordering;
 
-use App\Application\Ordering\Commands\PayOrderCommand;
-use App\Application\Ordering\Exceptions\OrderNotFoundException;
-use App\Application\Ordering\Handlers\PayOrderHandler;
-use App\Application\Shared\Eventing\DomainEventDispatcher;
-use App\Domain\Catalog\ValueObjects\Money;
-use App\Domain\Catalog\ValueObjects\ProductId;
-use App\Domain\Ordering\Entities\Order;
-use App\Domain\Ordering\Events\OrderPaid;
-use App\Domain\Ordering\Repositories\OrderRepository;
-use App\Domain\Ordering\ValueObjects\OrderId;
-use App\Domain\Ordering\ValueObjects\OrderStatus;
-use App\Domain\Shared\Events\DomainEvent;
+use App\Modules\Ordering\Application\Commands\PayOrderCommand;
+use App\Modules\Ordering\Application\Exceptions\OrderNotFoundException;
+use App\Modules\Ordering\Application\Handlers\PayOrderHandler;
+use App\Modules\Shared\Application\Eventing\DomainEventDispatcher;
+use App\Modules\Catalog\Domain\ValueObjects\Money;
+use App\Modules\Catalog\Domain\ValueObjects\ProductId;
+use App\Modules\Ordering\Domain\Entities\Order;
+use App\Modules\Ordering\Domain\Events\OrderPaid;
+use App\Modules\Ordering\Domain\Repositories\OrderRepository;
+use App\Modules\Ordering\Domain\ValueObjects\OrderId;
+use App\Modules\Ordering\Domain\ValueObjects\OrderStatus;
+use App\Modules\Shared\Domain\Events\DomainEvent;
 use DomainException;
 use PHPUnit\Framework\TestCase;
 

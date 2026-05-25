@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Infrastructure\Persistence\Eloquent;
 
-use App\Domain\Catalog\Entities\Product;
-use App\Domain\Catalog\Repositories\ProductRepository;
-use App\Domain\Catalog\ValueObjects\Money;
-use App\Domain\Catalog\ValueObjects\ProductId;
+use App\Modules\Catalog\Domain\Entities\Product;
+use App\Modules\Catalog\Domain\Repositories\ProductRepository;
+use App\Modules\Catalog\Domain\ValueObjects\Money;
+use App\Modules\Catalog\Domain\ValueObjects\ProductId;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 

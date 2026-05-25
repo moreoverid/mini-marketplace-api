@@ -16,6 +16,7 @@ services:
     depends_on:
       - postgres
       - redis
+      - rabbitmq
 
   nginx:
     image: nginx:1.27-alpine
@@ -46,6 +47,18 @@ services:
     ports:
       - "${FORWARD_REDIS_PORT:-6379}:6379"
 
+  rabbitmq:
+    image: rabbitmq:4-management
+    container_name: mini-marketplace-rabbitmq
+    ports:
+      - "${FORWARD_RABBITMQ_PORT:-5672}:5672"
+      - "${FORWARD_RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: marketplace
+      RABBITMQ_DEFAULT_PASS: secret
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+
   mailpit:
     image: axllent/mailpit:latest
     container_name: mini-marketplace-mailpit
@@ -58,14 +71,15 @@ services:
     working_dir: /var/www/html
     volumes:
       - .:/var/www/html
-    command: php artisan queue:work redis --sleep=1 --tries=3 --timeout=60
+    command: php artisan queue:work redis --queue=orders,default --sleep=1 --tries=3 --timeout=60
     depends_on:
       - app
       - redis
       - postgres
+      - rabbitmq
     profiles:
       - workers
 
 volumes:
   postgres-data:
-
+  rabbitmq-data:

@@ -13,6 +13,7 @@ RUN apt-get update \
         zip \
         libpq-dev \
         libzip-dev \
+        libonig-dev \
         ca-certificates \
         gnupg \
     && docker-php-ext-install \
@@ -21,6 +22,8 @@ RUN apt-get update \
         bcmath \
         zip \
         pcntl \
+        mbstring \
+        sockets \
     && pecl install redis \
     && docker-php-ext-enable redis \
     && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \

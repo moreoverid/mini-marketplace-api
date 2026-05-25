@@ -7,6 +7,7 @@ namespace Tests\Unit\Infrastructure\Eventing\Listeners;
 use App\Modules\Ordering\Domain\Events\OrderPaid;
 use App\Modules\Ordering\Domain\ValueObjects\OrderId;
 use App\Modules\Ordering\Infrastructure\Eventing\Listeners\DispatchOrderPaidJobs;
+use App\Modules\Ordering\Infrastructure\Jobs\PublishOrderPaidIntegrationEventJob;
 use App\Modules\Ordering\Infrastructure\Jobs\RecordOrderPaidAuditLogJob;
 use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
@@ -26,6 +27,11 @@ final class DispatchOrderPaidJobsTest extends TestCase
         Queue::assertPushed(
             RecordOrderPaidAuditLogJob::class,
             static fn (RecordOrderPaidAuditLogJob $job): bool => $job->orderId === $orderId->value(),
+        );
+
+        Queue::assertPushed(
+            PublishOrderPaidIntegrationEventJob::class,
+            static fn (PublishOrderPaidIntegrationEventJob $job): bool => $job->orderId === $orderId->value(),
         );
     }
 }

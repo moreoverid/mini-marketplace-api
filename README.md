@@ -1,6 +1,6 @@
 # Mini Marketplace API
 
-Mini Marketplace API is a portfolio project built with **Laravel 12**, **PHP 8+**, **PostgreSQL**, **Redis**, **Docker** and **Quasar 2**.
+Mini Marketplace API is a portfolio project built with **Laravel 12**, **PHP 8+**, **PostgreSQL**, **Redis**, **RabbitMQ**, **Docker** and **Quasar 2**.
 
 The project demonstrates a practical full-stack marketplace flow with:
 
@@ -8,9 +8,10 @@ The project demonstrates a practical full-stack marketplace flow with:
 - simplified CQRS
 - Test-Driven Development
 - SOLID-oriented responsibility separation
-- Laravel events, listeners, queued jobs
+- Laravel events, listeners and queued jobs
 - PostgreSQL persistence
 - Redis queue worker
+- RabbitMQ integration events
 - Vue 3 / Quasar 2 frontend
 - Docker-based local development
 
@@ -33,9 +34,11 @@ Record OrderPaid domain event
 ↓
 Dispatch listener
 ↓
-Run queued job
+Run queued jobs
 ↓
 Write payment audit log
+↓
+Publish order.paid integration event to RabbitMQ
 ```
 
 The same flow is available through the Quasar UI.
@@ -50,6 +53,7 @@ The same flow is available through the Quasar UI.
 - Laravel 12
 - PostgreSQL
 - Redis
+- RabbitMQ
 - PHPUnit
 - Laravel Queues
 - Laravel Events / Listeners / Jobs
@@ -69,6 +73,7 @@ The same flow is available through the Quasar UI.
 - Nginx
 - PHP-FPM
 - Mailpit
+- RabbitMQ Management UI
 
 ---
 
@@ -91,8 +96,9 @@ The same flow is available through the Quasar UI.
 - Pay pending orders
 - Prevent paying an order twice
 - Dispatch `OrderPaid` domain event
-- Handle payment side effects through queued job
+- Handle payment side effects through queued jobs
 - Store payment audit log idempotently
+- Publish `order.paid` integration event to RabbitMQ
 
 ### Frontend
 
@@ -108,7 +114,7 @@ The same flow is available through the Quasar UI.
 
 ## Architecture Overview
 
-The project uses a modular structure grouped by business context.
+The project uses a modular monolith structure grouped by business context.
 
 ```text
 app/
@@ -181,7 +187,7 @@ The domain layer does not depend on Laravel controllers, requests, resources or 
 
 ### Application
 
-Contains use cases, commands, handlers, queries and read models.
+Contains use cases, commands, handlers, queries, read models and application-level ports.
 
 Examples:
 
@@ -202,6 +208,12 @@ Ordering/Application
 ├── Handlers/PayOrderHandler.php
 ├── Queries/ListOrdersQuery.php
 └── ReadRepositories/OrderReadRepository.php
+```
+
+```text
+Shared/Application
+├── Eventing/DomainEventDispatcher.php
+└── Messaging/IntegrationEventPublisher.php
 ```
 
 Application handlers orchestrate use cases, but do not contain low-level infrastructure logic.
@@ -225,6 +237,7 @@ Catalog/Infrastructure
 Ordering/Infrastructure
 ├── Eventing/Listeners/DispatchOrderPaidJobs.php
 ├── Jobs/RecordOrderPaidAuditLogJob.php
+├── Jobs/PublishOrderPaidIntegrationEventJob.php
 └── Persistence/Eloquent
     ├── Models/OrderModel.php
     ├── Models/OrderItemModel.php
@@ -232,7 +245,15 @@ Ordering/Infrastructure
     └── Repositories/EloquentOrderRepository.php
 ```
 
-Infrastructure classes know about Laravel, Eloquent, queues and other technical details.
+```text
+Shared/Infrastructure
+├── Eventing/LaravelDomainEventDispatcher.php
+└── Messaging/RabbitMq
+    ├── RabbitMqConnectionFactory.php
+    └── RabbitMqIntegrationEventPublisher.php
+```
+
+Infrastructure classes know about Laravel, Eloquent, queues, RabbitMQ and other technical details.
 
 ---
 
@@ -244,17 +265,17 @@ Examples:
 
 ```text
 Catalog/Http
-├── Controllers/ProductController.php
-├── Requests/StoreProductRequest.php
-├── Requests/ListProductsRequest.php
+├── Controllers/Api/ProductController.php
+├── Requests/Api/StoreProductRequest.php
+├── Requests/Api/ListProductsRequest.php
 └── Resources/ProductResource.php
 ```
 
 ```text
 Ordering/Http
-├── Controllers/OrderController.php
-├── Requests/StoreOrderRequest.php
-├── Requests/ListOrdersRequest.php
+├── Controllers/Api/OrderController.php
+├── Requests/Api/StoreOrderRequest.php
+├── Requests/Api/ListOrdersRequest.php
 └── Resources/OrderResource.php
 ```
 
@@ -354,13 +375,19 @@ DomainEventDispatcher
 LaravelDomainEventDispatcher
 ↓
 DispatchOrderPaidJobs listener
-↓
-RecordOrderPaidAuditLogJob
-↓
-order_payment_logs table
+├── RecordOrderPaidAuditLogJob
+│   ↓
+│   order_payment_logs table
+└── PublishOrderPaidIntegrationEventJob
+    ↓
+    RabbitMQ exchange marketplace.events
+    ↓
+    routing key order.paid
 ```
 
-The job is idempotent and uses `updateOrCreate`, so duplicate job execution does not create duplicate audit logs.
+`RecordOrderPaidAuditLogJob` is idempotent and uses `updateOrCreate`, so duplicate job execution does not create duplicate audit logs.
+
+RabbitMQ is used for publishing external integration events. Redis is still used for internal Laravel queued jobs.
 
 ---
 
@@ -438,6 +465,12 @@ docker compose build
 docker compose run --rm --user app app composer install
 ```
 
+If `composer.lock` is not yet updated after adding RabbitMQ dependency, run:
+
+```bash
+docker compose run --rm --user app app composer update php-amqplib/php-amqplib
+```
+
 ### 5. Install frontend dependencies
 
 ```bash
@@ -480,6 +513,18 @@ Mailpit:
 http://localhost:8025
 ```
 
+RabbitMQ Management UI:
+
+```text
+http://localhost:15672
+```
+
+Default RabbitMQ credentials:
+
+```text
+marketplace / secret
+```
+
 ---
 
 ## Queue Worker
@@ -490,7 +535,7 @@ Start queue worker:
 docker compose --profile workers up -d
 ```
 
-The worker should listen to:
+The worker listens to:
 
 ```text
 orders,default
@@ -501,6 +546,25 @@ To watch logs:
 ```bash
 docker compose logs -f worker
 ```
+
+---
+
+## RabbitMQ Manual Check
+
+Create a temporary debug queue in RabbitMQ UI:
+
+```text
+Queue: debug.order.paid
+```
+
+Bind it to:
+
+```text
+Exchange: marketplace.events
+Routing key: order.paid
+```
+
+Then pay an order from the UI or API. The `order.paid` message should appear in the debug queue.
 
 ---
 
@@ -525,7 +589,8 @@ Current test coverage includes:
 - infrastructure repository tests;
 - HTTP feature tests;
 - event listener tests;
-- queued job tests.
+- queued job tests;
+- RabbitMQ integration event publishing job test.
 
 ---
 
@@ -549,7 +614,7 @@ docker compose exec app npm run build
 
 ### Modules are grouped by business context
 
-The code is grouped by modules such as `Catalog` and `Ordering`.
+The code is grouped by modules such as `Catalog`, `Ordering` and `Shared`.
 
 This makes related domain, application, infrastructure and HTTP code easier to find and change together.
 
@@ -603,7 +668,15 @@ This keeps the domain layer independent from Laravel.
 
 ---
 
-### Jobs are idempotent
+### Redis and RabbitMQ have different roles
+
+Redis is used for internal Laravel queued jobs.
+
+RabbitMQ is used for publishing external integration events, for example `order.paid`.
+
+---
+
+### Jobs are idempotent where needed
 
 The `RecordOrderPaidAuditLogJob` uses `updateOrCreate`, making it safe to retry.
 
@@ -616,8 +689,7 @@ This is important because queued jobs may be executed more than once.
 Possible next improvements:
 
 - add Elasticsearch for product search;
-- add RabbitMQ for publishing integration events;
-- implement outbox pattern;
+- implement outbox pattern for reliable RabbitMQ publishing;
 - add order cancellation flow;
 - add stock reservation/decrease logic;
 - add authentication;
@@ -646,7 +718,9 @@ PostgreSQL
 ↓
 Domain events
 ↓
-Queued jobs
+Redis queued jobs
+↓
+RabbitMQ integration events
 ```
 
-This repository is intended as a portfolio project for demonstrating practical backend architecture with Laravel, DDD, CQRS, TDD and modular design.
+This repository is intended as a portfolio project for demonstrating practical backend architecture with Laravel, DDD, CQRS, TDD, RabbitMQ and modular design.

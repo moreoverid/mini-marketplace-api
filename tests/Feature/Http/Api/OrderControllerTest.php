@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Http\Api;
 
 use App\Modules\Catalog\Infrastructure\Persistence\Eloquent\Models\ProductModel;
+use App\Modules\Ordering\Infrastructure\Jobs\PublishOrderPaidIntegrationEventJob;
 use App\Modules\Ordering\Infrastructure\Jobs\RecordOrderPaidAuditLogJob;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -169,6 +170,11 @@ final class OrderControllerTest extends TestCase
             static fn (RecordOrderPaidAuditLogJob $job): bool => $job->orderId === $orderId,
         );
 
+        Queue::assertPushed(
+            PublishOrderPaidIntegrationEventJob::class,
+            static fn (PublishOrderPaidIntegrationEventJob $job): bool => $job->orderId === $orderId,
+        );
+
         $this->assertDatabaseHas('orders', [
             'id' => $orderId,
             'status' => 'paid',
@@ -211,6 +217,8 @@ final class OrderControllerTest extends TestCase
         ]);
 
         $orderId = $createResponse->json('data.id');
+
+        Queue::fake();
 
         $this->patchJson("/api/orders/{$orderId}/pay")
             ->assertOk();
@@ -289,6 +297,8 @@ final class OrderControllerTest extends TestCase
         ]);
 
         $paidOrderId = $createPaidResponse->json('data.id');
+
+        Queue::fake();
 
         $this->patchJson("/api/orders/{$paidOrderId}/pay")->assertOk();
 

@@ -5,6 +5,7 @@ use App\Modules\Ordering\Http\Controllers\Api\OrderController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/products', [ProductController::class, 'index']);
+Route::get('/products/search', [ProductController::class, 'search']);
 Route::post('/products', [ProductController::class, 'store']);
 Route::get('/products/{id}', [ProductController::class, 'show']);
 

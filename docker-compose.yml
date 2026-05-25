@@ -17,6 +17,7 @@ services:
       - postgres
       - redis
       - rabbitmq
+      - elasticsearch
 
   nginx:
     image: nginx:1.27-alpine
@@ -59,6 +60,28 @@ services:
     volumes:
       - rabbitmq-data:/var/lib/rabbitmq
 
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.3
+    container_name: mini-marketplace-elasticsearch
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      ES_JAVA_OPTS: "-Xms512m -Xmx512m"
+    ports:
+      - "${FORWARD_ELASTICSEARCH_PORT:-9200}:9200"
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.15.3
+    container_name: mini-marketplace-kibana
+    environment:
+      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+    ports:
+      - "${FORWARD_KIBANA_PORT:-5601}:5601"
+    depends_on:
+      - elasticsearch
+
   mailpit:
     image: axllent/mailpit:latest
     container_name: mini-marketplace-mailpit
@@ -71,15 +94,17 @@ services:
     working_dir: /var/www/html
     volumes:
       - .:/var/www/html
-    command: php artisan queue:work redis --queue=orders,default --sleep=1 --tries=3 --timeout=60
+    command: php artisan queue:work redis --queue=orders,search,default --sleep=1 --tries=3 --timeout=60
     depends_on:
       - app
       - redis
       - postgres
       - rabbitmq
+      - elasticsearch
     profiles:
       - workers
 
 volumes:
   postgres-data:
   rabbitmq-data:
+  elasticsearch-data:

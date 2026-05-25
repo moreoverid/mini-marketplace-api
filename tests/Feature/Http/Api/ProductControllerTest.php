@@ -4,14 +4,30 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Http\Api;
 
+use App\Modules\Catalog\Application\Queries\SearchProductsQuery;
+use App\Modules\Catalog\Application\ReadModels\PaginatedProducts;
+use App\Modules\Catalog\Application\ReadModels\ProductListItem;
+use App\Modules\Catalog\Application\Search\ProductSearchIndexScheduler;
+use App\Modules\Catalog\Application\Search\ProductSearchRepository;
+use App\Modules\Catalog\Domain\Entities\Product;
 use App\Modules\Catalog\Infrastructure\Persistence\Eloquent\Models\ProductModel;
-use Illuminate\Support\Str;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 final class ProductControllerTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->app->bind(
+            ProductSearchIndexScheduler::class,
+            static fn (): ProductSearchIndexScheduler => new NullProductSearchIndexScheduler(),
+        );
+    }
 
     public function test_it_creates_product(): void
     {
@@ -139,5 +155,63 @@ final class ProductControllerTest extends TestCase
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.name', 'iPhone 15')
             ->assertJsonPath('meta.total', 1);
+    }
+
+    public function test_it_searches_products_through_search_read_side(): void
+    {
+        $this->app->bind(
+            ProductSearchRepository::class,
+            static fn (): ProductSearchRepository => new FakeProductSearchRepository(),
+        );
+
+        $response = $this->getJson('/api/products/search?query=iphone&per_page=10');
+
+        $response
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', 'product-1')
+            ->assertJsonPath('data.0.name', 'iPhone 15')
+            ->assertJsonPath('data.0.price.amount', 99900)
+            ->assertJsonPath('meta.total', 1)
+            ->assertJsonPath('meta.per_page', 10);
+    }
+
+    public function test_it_validates_search_query(): void
+    {
+        $response = $this->getJson('/api/products/search');
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['query']);
+    }
+}
+
+final class NullProductSearchIndexScheduler implements ProductSearchIndexScheduler
+{
+    public function schedule(Product $product): void
+    {
+    }
+}
+
+final class FakeProductSearchRepository implements ProductSearchRepository
+{
+    public function search(SearchProductsQuery $query): PaginatedProducts
+    {
+        return new PaginatedProducts(
+            items: [
+                new ProductListItem(
+                    id: 'product-1',
+                    name: 'iPhone 15',
+                    priceAmount: 99900,
+                    currency: 'USD',
+                    stock: 10,
+                    createdAt: '2026-05-25T10:00:00+00:00',
+                ),
+            ],
+            total: 1,
+            perPage: $query->perPage,
+            currentPage: $query->page,
+            lastPage: 1,
+        );
     }
 }

@@ -4,20 +4,23 @@ declare(strict_types=1);
 
 namespace App\Modules\Catalog\Http\Controllers\Api;
 
+use App\Http\Controllers\Controller;
 use App\Modules\Catalog\Application\Commands\CreateProductCommand;
 use App\Modules\Catalog\Application\Handlers\CreateProductHandler;
+use App\Modules\Catalog\Application\Handlers\ListProductsHandler;
+use App\Modules\Catalog\Application\Handlers\SearchProductsHandler;
+use App\Modules\Catalog\Application\Queries\ListProductsQuery;
+use App\Modules\Catalog\Application\Queries\SearchProductsQuery;
 use App\Modules\Catalog\Domain\Repositories\ProductRepository;
 use App\Modules\Catalog\Domain\ValueObjects\ProductId;
-use App\Http\Controllers\Controller;
+use App\Modules\Catalog\Http\Requests\Api\ListProductsRequest;
+use App\Modules\Catalog\Http\Requests\Api\SearchProductsRequest;
 use App\Modules\Catalog\Http\Requests\Api\StoreProductRequest;
+use App\Modules\Catalog\Http\Resources\ProductListItemResource;
 use App\Modules\Catalog\Http\Resources\ProductResource;
 use Illuminate\Http\JsonResponse;
-use Symfony\Component\HttpFoundation\Response;
-use App\Modules\Catalog\Application\Handlers\ListProductsHandler;
-use App\Modules\Catalog\Application\Queries\ListProductsQuery;
-use App\Modules\Catalog\Http\Requests\Api\ListProductsRequest;
-use App\Modules\Catalog\Http\Resources\ProductListItemResource;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Symfony\Component\HttpFoundation\Response;
 
 final class ProductController extends Controller
 {
@@ -29,6 +32,27 @@ final class ProductController extends Controller
             page: $request->page(),
             perPage: $request->perPage(),
             search: $request->search(),
+        ));
+
+        return ProductListItemResource::collection($products->items)
+            ->additional([
+                'meta' => [
+                    'total' => $products->total,
+                    'per_page' => $products->perPage,
+                    'current_page' => $products->currentPage,
+                    'last_page' => $products->lastPage,
+                ],
+            ]);
+    }
+
+    public function search(
+        SearchProductsRequest $request,
+        SearchProductsHandler $handler,
+    ): AnonymousResourceCollection {
+        $products = $handler->handle(new SearchProductsQuery(
+            query: $request->queryText(),
+            page: $request->page(),
+            perPage: $request->perPage(),
         ));
 
         return ProductListItemResource::collection($products->items)

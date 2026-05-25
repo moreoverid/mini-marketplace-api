@@ -6,6 +6,7 @@ namespace Tests\Unit\Application\Catalog;
 
 use App\Modules\Catalog\Application\Commands\CreateProductCommand;
 use App\Modules\Catalog\Application\Handlers\CreateProductHandler;
+use App\Modules\Catalog\Application\Search\ProductSearchIndexScheduler;
 use App\Modules\Catalog\Domain\Entities\Product;
 use App\Modules\Catalog\Domain\Repositories\ProductRepository;
 use App\Modules\Catalog\Domain\ValueObjects\ProductId;
@@ -17,8 +18,9 @@ final class CreateProductHandlerTest extends TestCase
     public function test_it_creates_product(): void
     {
         $repository = new InMemoryProductRepository();
+        $searchIndexer = new SpyProductSearchIndexer();
 
-        $handler = new CreateProductHandler($repository);
+        $handler = new CreateProductHandler($repository, $searchIndexer);
 
         $product = $handler->handle(new CreateProductCommand(
             name: 'iPhone 15',
@@ -36,13 +38,17 @@ final class CreateProductHandlerTest extends TestCase
         $this->assertSame(99900, $savedProduct->price()->amount());
         $this->assertSame('USD', $savedProduct->price()->currency());
         $this->assertSame(10, $savedProduct->stock());
+
+        $this->assertCount(1, $searchIndexer->products);
+        $this->assertTrue($product->id()->equals($searchIndexer->products[0]->id()));
     }
 
     public function test_it_does_not_create_product_with_empty_name(): void
     {
         $repository = new InMemoryProductRepository();
+        $searchIndexer = new SpyProductSearchIndexer();
 
-        $handler = new CreateProductHandler($repository);
+        $handler = new CreateProductHandler($repository, $searchIndexer);
 
         $this->expectException(DomainException::class);
 
@@ -70,5 +76,18 @@ final class InMemoryProductRepository implements ProductRepository
     public function save(Product $product): void
     {
         $this->products[$product->id()->value()] = $product;
+    }
+}
+
+final class SpyProductSearchIndexer implements ProductSearchIndexScheduler
+{
+    /**
+     * @var list<Product>
+     */
+    public array $products = [];
+
+    public function schedule(Product $product): void
+    {
+        $this->products[] = $product;
     }
 }

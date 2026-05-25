@@ -4,7 +4,7 @@
       <div>
         <div class="text-h5">Products</div>
         <div class="text-body2 text-grey-7">
-          Catalog read side powered by Laravel API.
+          Catalog read side powered by PostgreSQL list and Elasticsearch search.
         </div>
       </div>
 
@@ -133,7 +133,7 @@
 <script setup>
 import { onMounted, reactive, ref } from 'vue';
 import { useQuasar, date } from 'quasar';
-import { createProduct, fetchProducts } from '../api/products';
+import { createProduct, fetchProducts, searchProducts } from '../api/products';
 
 const $q = useQuasar();
 
@@ -188,11 +188,18 @@ async function loadProducts() {
   loading.value = true;
 
   try {
-    const response = await fetchProducts({
-      page: pagination.value.page,
-      per_page: pagination.value.rowsPerPage,
-      search: search.value || undefined,
-    });
+    const hasSearch = Boolean(search.value?.trim());
+
+    const response = hasSearch
+      ? await searchProducts({
+        page: pagination.value.page,
+        per_page: pagination.value.rowsPerPage,
+        query: search.value.trim(),
+      })
+      : await fetchProducts({
+        page: pagination.value.page,
+        per_page: pagination.value.rowsPerPage,
+      });
 
     products.value = response.data;
 

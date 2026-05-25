@@ -3,9 +3,15 @@
 namespace App\Providers;
 
 use App\Modules\Catalog\Application\ReadRepositories\ProductReadRepository;
+use App\Modules\Catalog\Application\Search\ProductSearchIndexer;
+use App\Modules\Catalog\Application\Search\ProductSearchIndexScheduler;
+use App\Modules\Catalog\Application\Search\ProductSearchRepository;
 use App\Modules\Catalog\Domain\Repositories\ProductRepository;
 use App\Modules\Catalog\Infrastructure\Persistence\Eloquent\Repositories\EloquentProductReadRepository;
 use App\Modules\Catalog\Infrastructure\Persistence\Eloquent\Repositories\EloquentProductRepository;
+use App\Modules\Catalog\Infrastructure\Search\Elasticsearch\ElasticsearchProductSearchIndexer;
+use App\Modules\Catalog\Infrastructure\Search\Elasticsearch\ElasticsearchProductSearchRepository;
+use App\Modules\Catalog\Infrastructure\Search\QueuedProductSearchIndexer;
 use App\Modules\Ordering\Application\ReadRepositories\OrderReadRepository;
 use App\Modules\Ordering\Domain\Events\OrderPaid;
 use App\Modules\Ordering\Domain\Repositories\OrderRepository;
@@ -34,6 +40,21 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(
             ProductReadRepository::class,
             EloquentProductReadRepository::class,
+        );
+
+        $this->app->bind(
+            ProductSearchIndexScheduler::class,
+            QueuedProductSearchIndexer::class,
+        );
+
+        $this->app->bind(
+            ProductSearchIndexer::class,
+            ElasticsearchProductSearchIndexer::class,
+        );
+
+        $this->app->bind(
+            ProductSearchRepository::class,
+            ElasticsearchProductSearchRepository::class,
         );
 
         $this->app->bind(

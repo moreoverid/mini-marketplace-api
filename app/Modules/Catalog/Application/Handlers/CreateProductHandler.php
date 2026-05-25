@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\Catalog\Application\Handlers;
 
 use App\Modules\Catalog\Application\Commands\CreateProductCommand;
+use App\Modules\Catalog\Application\Search\ProductSearchIndexScheduler;
 use App\Modules\Catalog\Domain\Entities\Product;
 use App\Modules\Catalog\Domain\Repositories\ProductRepository;
 use App\Modules\Catalog\Domain\ValueObjects\Money;
@@ -14,6 +15,7 @@ final class CreateProductHandler
 {
     public function __construct(
         private ProductRepository $products,
+        private ProductSearchIndexScheduler $searchIndexer,
     ) {
     }
 
@@ -27,6 +29,7 @@ final class CreateProductHandler
         );
 
         $this->products->save($product);
+        $this->searchIndexer->schedule($product);
 
         return $product;
     }

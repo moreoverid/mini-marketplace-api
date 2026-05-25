@@ -1,17 +1,19 @@
 # Mini Marketplace API
 
-Mini Marketplace API is a portfolio project built with **Laravel 12**, **PHP 8+**, **PostgreSQL**, **Redis**, **RabbitMQ**, **Docker** and **Quasar 2**.
+Mini Marketplace API is a portfolio project built with **Laravel 12**, **PHP 8+**, **PostgreSQL**, **Redis**, **RabbitMQ**, **Elasticsearch**, **Docker** and **Quasar 2**.
 
 The project demonstrates a practical full-stack marketplace flow with:
 
 - Domain-Driven Design
+- modular monolith structure
 - simplified CQRS
 - Test-Driven Development
 - SOLID-oriented responsibility separation
 - Laravel events, listeners and queued jobs
 - PostgreSQL persistence
 - Redis queue worker
-- RabbitMQ integration events
+- RabbitMQ integration event publishing
+- Elasticsearch product search
 - Vue 3 / Quasar 2 frontend
 - Docker-based local development
 
@@ -19,12 +21,14 @@ The project demonstrates a practical full-stack marketplace flow with:
 
 ## Project Goal
 
-The goal of this project is not to build a large marketplace, but to show a clean and testable backend architecture on a small realistic domain.
+The goal of this project is not to build a large marketplace, but to demonstrate clean and testable backend architecture on a small realistic domain.
 
 Current business flow:
 
 ```text
 Create product
+↓
+Index product in Elasticsearch
 ↓
 Create order from product
 ↓
@@ -54,6 +58,7 @@ The same flow is available through the Quasar UI.
 - PostgreSQL
 - Redis
 - RabbitMQ
+- Elasticsearch
 - PHPUnit
 - Laravel Queues
 - Laravel Events / Listeners / Jobs
@@ -73,6 +78,7 @@ The same flow is available through the Quasar UI.
 - Nginx
 - PHP-FPM
 - Mailpit
+- Kibana
 - RabbitMQ Management UI
 
 ---
@@ -83,9 +89,12 @@ The same flow is available through the Quasar UI.
 
 - Create products
 - List products with pagination
-- Search products by name
+- Search products by name through PostgreSQL read side
+- Search products through Elasticsearch search endpoint
 - Store price as integer amount instead of float
 - Product domain model with value objects
+- Asynchronous product indexing in Elasticsearch
+- Elasticsearch maintenance commands for index creation, deletion and reindexing
 
 ### Orders
 
@@ -109,12 +118,13 @@ The same flow is available through the Quasar UI.
 - Pay order action
 - Status badges
 - Pagination and filtering
+- Product search UI
 
 ---
 
 ## Architecture Overview
 
-The project uses a modular monolith structure grouped by business context.
+The project uses a **Modular Monolith** structure grouped by business context.
 
 ```text
 app/
@@ -141,7 +151,7 @@ app/
 
 The main idea is to keep classes that change for the same business reason close to each other.
 
-For example, Catalog-related domain objects, use cases, HTTP controllers and persistence code are grouped under the `Catalog` module.
+For example, Catalog-related domain objects, use cases, HTTP controllers, persistence code and search infrastructure are grouped under the `Catalog` module.
 
 ---
 
@@ -181,13 +191,13 @@ Ordering/Domain
 └── Repositories/OrderRepository.php
 ```
 
-The domain layer does not depend on Laravel controllers, requests, resources or Eloquent models.
+The domain layer does not depend on Laravel controllers, requests, resources, Eloquent models, RabbitMQ or Elasticsearch.
 
 ---
 
 ### Application
 
-Contains use cases, commands, handlers, queries, read models and application-level ports.
+Contains use cases, commands, handlers, queries, read models and ports.
 
 Examples:
 
@@ -196,8 +206,10 @@ Catalog/Application
 ├── Commands/CreateProductCommand.php
 ├── Handlers/CreateProductHandler.php
 ├── Queries/ListProductsQuery.php
+├── Queries/SearchProductsQuery.php
 ├── ReadModels/ProductListItem.php
-└── ReadRepositories/ProductReadRepository.php
+├── ReadRepositories/ProductReadRepository.php
+└── Search/ProductSearchIndexer.php
 ```
 
 ```text
@@ -208,12 +220,6 @@ Ordering/Application
 ├── Handlers/PayOrderHandler.php
 ├── Queries/ListOrdersQuery.php
 └── ReadRepositories/OrderReadRepository.php
-```
-
-```text
-Shared/Application
-├── Eventing/DomainEventDispatcher.php
-└── Messaging/IntegrationEventPublisher.php
 ```
 
 Application handlers orchestrate use cases, but do not contain low-level infrastructure logic.
@@ -228,9 +234,16 @@ Examples:
 
 ```text
 Catalog/Infrastructure
-└── Persistence/Eloquent
-    ├── Models/ProductModel.php
-    └── Repositories/EloquentProductRepository.php
+├── Persistence/Eloquent
+│   ├── Models/ProductModel.php
+│   └── Repositories/EloquentProductRepository.php
+└── Search
+    ├── Jobs/IndexProductInSearchJob.php
+    ├── QueuedProductSearchIndexer.php
+    └── Elasticsearch
+        ├── ElasticsearchProductSearchIndexer.php
+        ├── ElasticsearchProductSearchRepository.php
+        └── ProductSearchIndexManager.php
 ```
 
 ```text
@@ -247,13 +260,11 @@ Ordering/Infrastructure
 
 ```text
 Shared/Infrastructure
-├── Eventing/LaravelDomainEventDispatcher.php
-└── Messaging/RabbitMq
-    ├── RabbitMqConnectionFactory.php
-    └── RabbitMqIntegrationEventPublisher.php
+├── Messaging/RabbitMq
+└── Search/Elasticsearch
 ```
 
-Infrastructure classes know about Laravel, Eloquent, queues, RabbitMQ and other technical details.
+Infrastructure classes know about Laravel, Eloquent, queues, RabbitMQ, Elasticsearch and other technical details.
 
 ---
 
@@ -268,6 +279,7 @@ Catalog/Http
 ├── Controllers/Api/ProductController.php
 ├── Requests/Api/StoreProductRequest.php
 ├── Requests/Api/ListProductsRequest.php
+├── Requests/Api/SearchProductsRequest.php
 └── Resources/ProductResource.php
 ```
 
@@ -344,8 +356,10 @@ Queries read data using separate read repositories and read models:
 
 ```text
 ListProductsQuery
+SearchProductsQuery
 ListOrdersQuery
 ProductReadRepository
+ProductSearchRepository
 OrderReadRepository
 ProductListItem
 OrderListItem
@@ -353,7 +367,7 @@ OrderListItem
 
 The reason for this separation is simple: list/search endpoints need pagination, filters and UI-specific read models, while domain repositories should stay focused on aggregate persistence.
 
-At the moment both command and query sides use PostgreSQL, but the read side can later be moved to Elasticsearch without changing the domain model or command side.
+PostgreSQL remains the source of truth. Elasticsearch is used as a rebuildable search read model.
 
 ---
 
@@ -375,19 +389,74 @@ DomainEventDispatcher
 LaravelDomainEventDispatcher
 ↓
 DispatchOrderPaidJobs listener
-├── RecordOrderPaidAuditLogJob
-│   ↓
-│   order_payment_logs table
-└── PublishOrderPaidIntegrationEventJob
-    ↓
-    RabbitMQ exchange marketplace.events
-    ↓
-    routing key order.paid
+↓
+RecordOrderPaidAuditLogJob
+↓
+order_payment_logs table
 ```
 
-`RecordOrderPaidAuditLogJob` is idempotent and uses `updateOrCreate`, so duplicate job execution does not create duplicate audit logs.
+The same listener also dispatches a RabbitMQ publishing job:
 
-RabbitMQ is used for publishing external integration events. Redis is still used for internal Laravel queued jobs.
+```text
+OrderPaid
+↓
+PublishOrderPaidIntegrationEventJob
+↓
+RabbitMQ exchange: marketplace.events
+↓
+routing key: order.paid
+```
+
+The audit log job is idempotent and uses `updateOrCreate`, so duplicate job execution does not create duplicate audit logs.
+
+---
+
+## Elasticsearch Flow
+
+When a product is created:
+
+```text
+POST /api/products
+↓
+CreateProductHandler
+↓
+Product saved in PostgreSQL
+↓
+ProductSearchIndexScheduler
+↓
+IndexProductInSearchJob
+↓
+Elasticsearch products index
+```
+
+Search endpoint:
+
+```http
+GET /api/products/search?query=iphone
+```
+
+Elasticsearch is treated as a rebuildable read model. If the index is deleted or recreated, it can be restored from PostgreSQL using the reindex command.
+
+---
+
+## RabbitMQ Flow
+
+RabbitMQ is used for publishing external integration events.
+
+Redis is used for internal Laravel queued jobs. RabbitMQ is used as an integration broker for messages that could be consumed by other services.
+
+Published event example:
+
+```json
+{
+  "event_id": "UUID",
+  "event_type": "order.paid",
+  "occurred_at": "2026-05-25T10:00:00+00:00",
+  "data": {
+    "order_id": "ORDER_UUID"
+  }
+}
+```
 
 ---
 
@@ -397,6 +466,7 @@ RabbitMQ is used for publishing external integration events. Redis is still used
 
 ```http
 GET /api/products
+GET /api/products/search?query=iphone
 POST /api/products
 GET /api/products/{id}
 ```
@@ -465,12 +535,6 @@ docker compose build
 docker compose run --rm --user app app composer install
 ```
 
-If `composer.lock` is not yet updated after adding RabbitMQ dependency, run:
-
-```bash
-docker compose run --rm --user app app composer update php-amqplib/php-amqplib
-```
-
 ### 5. Install frontend dependencies
 
 ```bash
@@ -495,7 +559,13 @@ docker compose up -d
 docker compose exec app php artisan migrate
 ```
 
-### 9. Start Vite dev server
+### 9. Create Elasticsearch index
+
+```bash
+docker compose exec app php artisan search:products:create-index
+```
+
+### 10. Start Vite dev server
 
 ```bash
 docker compose exec app npm run dev -- --host 0.0.0.0
@@ -513,58 +583,106 @@ Mailpit:
 http://localhost:8025
 ```
 
-RabbitMQ Management UI:
+RabbitMQ Management:
 
 ```text
 http://localhost:15672
 ```
 
-Default RabbitMQ credentials:
+Kibana:
 
 ```text
-marketplace / secret
+http://localhost:5601
 ```
 
 ---
 
 ## Queue Worker
 
-Start queue worker:
+Some background tasks are processed asynchronously through Laravel Queue.
+
+The worker handles:
+
+- `orders` queue: order payment audit log and RabbitMQ integration events;
+- `search` queue: Elasticsearch product indexing;
+- `default` queue: fallback Laravel queue.
+
+Start the worker:
 
 ```bash
-docker compose --profile workers up -d
+docker compose --profile workers up -d worker
 ```
 
-The worker listens to:
-
-```text
-orders,default
-```
-
-To watch logs:
+Watch worker logs:
 
 ```bash
 docker compose logs -f worker
 ```
 
+The worker listens to:
+
+```text
+orders,search,default
+```
+
+The worker is under the `workers` Docker Compose profile, so it is not started by a regular:
+
+```bash
+docker compose up -d
+```
+
 ---
 
-## RabbitMQ Manual Check
+## Elasticsearch Maintenance Commands
 
-Create a temporary debug queue in RabbitMQ UI:
+Create products index:
 
-```text
-Queue: debug.order.paid
+```bash
+docker compose exec app php artisan search:products:create-index
 ```
 
-Bind it to:
+Delete products index:
 
-```text
-Exchange: marketplace.events
-Routing key: order.paid
+```bash
+docker compose exec app php artisan search:products:delete-index
 ```
 
-Then pay an order from the UI or API. The `order.paid` message should appear in the debug queue.
+Reindex products from PostgreSQL:
+
+```bash
+docker compose exec app php artisan search:products:reindex
+```
+
+Drop and recreate index before reindexing:
+
+```bash
+docker compose exec app php artisan search:products:reindex --fresh
+```
+
+---
+
+## RabbitMQ Check
+
+RabbitMQ UI:
+
+```text
+http://localhost:15672
+```
+
+Default credentials for local development:
+
+```text
+marketplace / secret
+```
+
+For manual testing, create a queue in RabbitMQ Management UI and bind it to:
+
+```text
+exchange: marketplace.events
+routing key: order.paid
+```
+
+After paying an order, the message should be published to this exchange.
 
 ---
 
@@ -590,7 +708,7 @@ Current test coverage includes:
 - HTTP feature tests;
 - event listener tests;
 - queued job tests;
-- RabbitMQ integration event publishing job test.
+- search indexing tests.
 
 ---
 
@@ -656,7 +774,7 @@ This avoids floating-point precision issues.
 
 Product and order lists use read repositories and read models instead of domain repositories.
 
-This avoids mixing aggregate persistence with table/list-specific queries.
+Elasticsearch product search is also implemented as a separate search read model.
 
 ---
 
@@ -672,7 +790,15 @@ This keeps the domain layer independent from Laravel.
 
 Redis is used for internal Laravel queued jobs.
 
-RabbitMQ is used for publishing external integration events, for example `order.paid`.
+RabbitMQ is used for external integration events, such as `order.paid`.
+
+---
+
+### Elasticsearch is rebuildable
+
+PostgreSQL is the source of truth.
+
+Elasticsearch stores a search read model and can be recreated using maintenance commands.
 
 ---
 
@@ -688,8 +814,7 @@ This is important because queued jobs may be executed more than once.
 
 Possible next improvements:
 
-- add Elasticsearch for product search;
-- implement outbox pattern for reliable RabbitMQ publishing;
+- implement outbox pattern for RabbitMQ publishing;
 - add order cancellation flow;
 - add stock reservation/decrease logic;
 - add authentication;
@@ -721,6 +846,8 @@ Domain events
 Redis queued jobs
 ↓
 RabbitMQ integration events
+↓
+Elasticsearch search read model
 ```
 
-This repository is intended as a portfolio project for demonstrating practical backend architecture with Laravel, DDD, CQRS, TDD, RabbitMQ and modular design.
+This repository is intended as a portfolio project for demonstrating practical backend architecture with Laravel, DDD, CQRS, TDD, modular design, queues, messaging and search infrastructure.

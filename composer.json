@@ -2,7 +2,7 @@
     "$schema": "https://getcomposer.org/schema.json",
     "name": "laravel/laravel",
     "type": "project",
-    "description": "The skeleton application for the Laravel framework.",
+    "description": "Portfolio marketplace application demonstrating modular Laravel architecture, domain modelling, queues and external integrations.",
     "keywords": [
         "laravel",
         "framework"
